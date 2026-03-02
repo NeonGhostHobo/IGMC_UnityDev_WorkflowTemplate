@@ -1,0 +1,65 @@
+name: PR (IGMC Integrity Gate)
+
+on:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  integrity:
+    name: IGMC integrity checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Enforce docs and tickets updated
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA='${{ github.event.pull_request.base.sha }}'
+          HEAD_SHA='${{ github.event.pull_request.head.sha }}'
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA"
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | tr -d '\r')
+          echo "Changed files:" && echo "$CHANGED_FILES" || true
+
+          # If there are any changes outside docs/tickets/reports, require docs + tickets to be updated.
+          NON_DOC=$(echo "$CHANGED_FILES" | grep -vE '^(docs/|tickets/|reports/)$' | grep -vE '^(docs/|tickets/|reports/)' || true)
+          if [[ -z "${NON_DOC}" ]]; then
+            echo "Only docs/tickets/reports changed; skipping enforcement."
+            exit 0
+          fi
+
+          required_docs=(
+            "docs/context_pack.json"
+            "docs/goals.json"
+            "docs/design.json"
+            "docs/plan.yaml"
+          )
+
+          for f in "${required_docs[@]}"; do
+            if ! echo "$CHANGED_FILES" | grep -qx "$f"; then
+              echo "ERROR: Non-doc changes detected, but $f was not updated in this PR."
+              exit 1
+            fi
+          done
+
+          if ! echo "$CHANGED_FILES" | grep -qE '^tickets/.*\.md$'; then
+            echo "ERROR: Non-doc changes detected, but no tickets/*.md were added/updated in this PR."
+            exit 1
+          fi
+
+          # Require ReviewAgent output on any non-doc change.
+          if ! echo "$CHANGED_FILES" | grep -qx "review.md"; then
+            echo "ERROR: Non-doc changes detected, but review.md was not added/updated in this PR."
+            echo "Run the ReviewAgent to create/update review.md, then proceed with PolishingAgent if needed."
+            exit 1
+          fi
+
+      - name: Validate Orchestrator Artifacts
+        run: python3 scripts/validate_artifacts.py

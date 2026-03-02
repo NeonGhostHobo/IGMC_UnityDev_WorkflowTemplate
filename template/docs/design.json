@@ -1,0 +1,10 @@
+{
+  "decisions": [
+    {
+      "id": "D-CI-001",
+      "title": "PR + nightly IGMC integrity gates",
+      "rationale": "Prevent regressions and keep required artifacts consistent.",
+      "evidence": [".github/workflows/pr.yml", ".github/workflows/nightly.yml"]
+    }
+  ]
+}

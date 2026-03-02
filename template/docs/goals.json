@@ -1,0 +1,11 @@
+{
+  "goals": [
+    {
+      "id": "G-CI-001",
+      "title": "Nightly integrity gate passes",
+      "type": "ci",
+      "evidence": ["GitHub Actions nightly workflow passes"],
+      "acceptance": ["Artifact validation passes (scripts/validate_artifacts.py)"]
+    }
+  ]
+}

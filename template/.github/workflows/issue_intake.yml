@@ -1,0 +1,58 @@
+name: IGMC Issue Helper (Copilot)
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  helper:
+    name: Comment Copilot checklist
+    if: contains(github.event.issue.labels.*.name, 'igmc') || startsWith(github.event.issue.title, 'IGMC:')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Comment Copilot checklist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+
+            const checklist = `IGMC Copilot checklist\n\n` +
+              `Assign this issue to Copilot coding agent to start the overnight run.\n\n` +
+              `Required output order (must be in the PR):\n` +
+              `1) Update required docs first (always):\n` +
+              `   - docs/context_pack.md + docs/context_pack.json\n` +
+              `   - docs/goals.md + docs/goals.json\n` +
+              `   - docs/design.md + docs/design.json\n` +
+              `   - docs/plan.md + docs/plan.yaml\n` +
+              `2) Add/update one or more tickets/*.md\n` +
+              `3) Implement the tickets (minimal safe changes)\n` +
+              `4) Run ReviewAgent and add/update review.md\n` +
+              `5) Add/update reports/YYYY-MM-DD.md + reports/YYYY-MM-DD.json\n\n` +
+              `CI gates:\n` +
+              `- PR (IGMC Integrity Gate) must pass\n` +
+              `- scripts/validate_artifacts.py must pass\n` +
+              `- If code changes occur, the PR must update required docs + include tickets/*.md + review.md\n\n` +
+              `Reference: .github/copilot-instructions.md`;
+
+            // Avoid duplicate comments if re-run.
+            const existing = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              per_page: 100,
+            });
+            if (existing.data.some(c => (c.body || '').startsWith('IGMC Copilot checklist'))) {
+              core.info('Checklist comment already exists; skipping.');
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: checklist,
+            });
