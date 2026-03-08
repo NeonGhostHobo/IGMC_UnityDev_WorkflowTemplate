@@ -1,0 +1,73 @@
+name: Apply IGMC Scaffold to Repos
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Overwrite existing files in destination repos"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - NullEngine
+          - ThisCityIsDying
+
+    steps:
+      - name: Checkout template repo
+        uses: actions/checkout@v4
+        with:
+          path: template-repo
+
+      - name: Checkout ${{ matrix.repo }}
+        uses: actions/checkout@v4
+        with:
+          repository: NeonGhostHobo/${{ matrix.repo }}
+          token: ${{ secrets.GH_PAT }}
+          path: target-repo
+
+      - name: Apply scaffold
+        run: |
+          FORCE_FLAG=""
+          if [ "${{ inputs.force }}" = "true" ]; then
+            FORCE_FLAG="--force"
+          fi
+          python3 template-repo/workflow_scaffold/apply.py \
+            --dest target-repo \
+            $FORCE_FLAG
+
+      - name: Commit and push scaffold changes
+        id: commit
+        run: |
+          cd target-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b igmc/apply-scaffold
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit — scaffold already up to date."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Apply IGMC workflow scaffold (--force)"
+            git push origin igmc/apply-scaffold
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open pull request in ${{ matrix.repo }}
+        if: steps.commit.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh pr create \
+            --repo NeonGhostHobo/${{ matrix.repo }} \
+            --head igmc/apply-scaffold \
+            --title "Apply IGMC workflow scaffold" \
+            --body "Automated: applied IGMC workflow scaffold from [IGMC_UnityDev_WorkflowTemplate](https://github.com/NeonGhostHobo/IGMC_UnityDev_WorkflowTemplate) with \`--force\` (overwrites existing template files)."
