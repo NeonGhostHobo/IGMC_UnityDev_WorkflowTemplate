@@ -1,0 +1,119 @@
+name: IGMC Design Doc Intake
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'design_docs/**'
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create_intake_issue:
+    name: Create design doc intake issue
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Create IGMC intake issue for new design docs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const before = context.payload.before;
+            const after = context.payload.after;
+
+            // If this is a workflow_dispatch, we can't diff; just no-op.
+            if (!before || !after || before === '0000000000000000000000000000000000000000') {
+              core.info('No before/after range available; skipping.');
+              return;
+            }
+
+            const compare = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: before,
+              head: after,
+            });
+
+            const changed = compare.data.files || [];
+            const addedDocs = changed
+              .filter(f => f.status === 'added')
+              .map(f => f.filename)
+              .filter(name => name.startsWith('design_docs/'))
+              .filter(name => !name.endsWith('/README.md'))
+              .filter(name => name.toLowerCase().endsWith('.md') || name.toLowerCase().endsWith('.txt'));
+
+            if (!addedDocs.length) {
+              core.info('No new design docs added; skipping.');
+              return;
+            }
+
+            for (const docPath of addedDocs) {
+              let docText = '';
+              try {
+                docText = fs.readFileSync(path.join(process.env.GITHUB_WORKSPACE, docPath), 'utf8');
+              } catch (e) {
+                core.warning(`Could not read ${docPath}: ${e.message}`);
+                docText = '';
+              }
+
+              // Keep issue bodies within reasonable size.
+              const MAX_CHARS = 20000;
+              const truncated = docText.length > MAX_CHARS ? (docText.slice(0, MAX_CHARS) + '\n\n[TRUNCATED]\n') : docText;
+
+              const title = `IGMC: Design Doc Intake — ${path.basename(docPath)}`;
+              const body = [
+                `Design doc path: \`${docPath}\``,
+                '',
+                'Instructions for Copilot coding agent:',
+                '- Read the design doc content below.',
+                '- Split it into a set of executable `tickets/*.md` (small, logical, dependency-ordered).',
+                '- In the PR, update required `docs/*` first (context_pack/goals/design/plan).',
+                '- Implement only if explicitly requested by the ticket scope; otherwise generate tickets + docs.',
+                '- Run ReviewAgent and add/update `review.md` if code changes occur.',
+                '',
+                '---',
+                '',
+                truncated ? truncated : '(No document content could be read.)',
+              ].join('\n');
+
+              // Avoid duplicates: if an open issue with same title exists, skip.
+              const search = await github.rest.search.issuesAndPullRequests({
+                q: `repo:${context.repo.owner}/${context.repo.repo} is:issue in:title \"${title.replace(/\"/g, '\\"')}\"`,
+                per_page: 10,
+              });
+              if ((search.data.items || []).some(i => (i.title || '') === title)) {
+                core.info(`Issue already exists for ${docPath}; skipping.`);
+                continue;
+              }
+
+              try {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body,
+                  labels: ['igmc'],
+                });
+              } catch (e) {
+                core.warning(`Failed to apply labels to issue for ${docPath}: ${e.message}`);
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body: body + '\n\n[WARN] Could not apply label "igmc" (label may not exist yet).',
+                });
+              }
+
+              core.info(`Created intake issue for ${docPath}`);
+            }

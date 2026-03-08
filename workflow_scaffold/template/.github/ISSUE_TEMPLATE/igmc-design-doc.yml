@@ -1,0 +1,43 @@
+name: IGMC Design Doc Intake (Split into issues)
+description: Submit a free-form design document to be split into IGMC tickets/issues.
+labels: ["igmc"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Submit a design document (free-form). Intended flow:
+        - Create this Issue (or push a file into `design_docs/`)
+        - Assign it to Copilot coding agent
+        - Copilot generates a set of `tickets/*.md` (and updates required `/docs/*`) in a PR
+        - After merge, the repo automation can convert new tickets into individual IGMC Issues
+
+        Keep it practical:
+        - Include goals, constraints, and any key interfaces or data flows
+        - Call out non-goals and performance targets
+
+  - type: textarea
+    id: design_doc
+    attributes:
+      label: Design document
+      description: Paste your design document here (Markdown OK). If you pushed a file into `design_docs/`, you can instead paste a short summary + link/path.
+      placeholder: |
+        Example:
+        - Project goal: ...
+        - Architecture: ...
+        - Components:
+          - ...
+        - Constraints:
+          - ...
+        - Definition of done:
+          - ...
+    validations:
+      required: true
+
+  - type: input
+    id: source_path
+    attributes:
+      label: Optional source path
+      description: If the full design doc is in-repo, provide the path (e.g. `design_docs/my_doc.md`).
+      placeholder: design_docs/my_design.md
+    validations:
+      required: false

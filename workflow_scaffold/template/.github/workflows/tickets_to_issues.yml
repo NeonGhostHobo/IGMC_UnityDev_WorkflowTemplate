@@ -1,0 +1,109 @@
+name: IGMC Tickets → Issues
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'tickets/**'
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  tickets_to_issues:
+    name: Create IGMC issues for new tickets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create issues for added tickets
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const before = context.payload.before;
+            const after = context.payload.after;
+
+            if (!before || !after || before === '0000000000000000000000000000000000000000') {
+              core.info('No before/after range available; skipping.');
+              return;
+            }
+
+            const compare = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: before,
+              head: after,
+            });
+
+            const changed = compare.data.files || [];
+            const addedTickets = changed
+              .filter(f => f.status === 'added')
+              .map(f => f.filename)
+              .filter(name => /^tickets\/.*\.md$/.test(name));
+
+            if (!addedTickets.length) {
+              core.info('No new tickets added; skipping.');
+              return;
+            }
+
+            for (const ticketPath of addedTickets) {
+              // Fetch ticket content from repo at the push SHA.
+              const contentResp = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: ticketPath,
+                ref: after,
+              });
+
+              if (!contentResp.data || contentResp.data.type !== 'file' || !contentResp.data.content) {
+                core.warning(`Unexpected content response for ${ticketPath}; skipping.`);
+                continue;
+              }
+
+              const buff = Buffer.from(contentResp.data.content, contentResp.data.encoding || 'base64');
+              const text = buff.toString('utf8');
+              const firstLine = (text.split(/\r?\n/).find(l => l.trim().length > 0) || '').trim();
+
+              // Title defaults to the first markdown heading, otherwise file name.
+              const heading = firstLine.startsWith('#') ? firstLine.replace(/^#+\s*/, '') : '';
+              const baseTitle = heading || ticketPath;
+              const title = `IGMC: ${baseTitle}`;
+
+              // Avoid duplicates by exact title match.
+              const search = await github.rest.search.issuesAndPullRequests({
+                q: `repo:${context.repo.owner}/${context.repo.repo} is:issue in:title \"${title.replace(/\"/g, '\\"')}\"`,
+                per_page: 10,
+              });
+              if ((search.data.items || []).some(i => (i.title || '') === title)) {
+                core.info(`Issue already exists for ${ticketPath}; skipping.`);
+                continue;
+              }
+
+              const body = [
+                `Source ticket: \`${ticketPath}\``,
+                '',
+                '---',
+                '',
+                text,
+              ].join('\n');
+
+              try {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body,
+                  labels: ['igmc'],
+                });
+              } catch (e) {
+                core.warning(`Failed to apply labels to issue for ${ticketPath}: ${e.message}`);
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body: body + '\n\n[WARN] Could not apply label "igmc" (label may not exist yet).',
+                });
+              }
+
+              core.info(`Created IGMC issue for ${ticketPath}`);
+            }

@@ -1,0 +1,152 @@
+name: IGMC PR Rebase Helper
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  rebase:
+    name: Rebase IGMC PR on /igmc-rebase
+    if: >-
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '/igmc-rebase')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Load PR metadata
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const assoc = (context.payload.comment.author_association || '').toUpperCase();
+            const allowed = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+            if (!allowed.has(assoc)) {
+              core.setFailed(`Not allowed: author_association=${assoc}`);
+            }
+
+            const prNumber = context.payload.issue.number;
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            const title = pr.data.title || '';
+            const labels = (pr.data.labels || []).map(l => l.name);
+            const isIgmC = title.trim().toLowerCase().startsWith('igmc:') || labels.includes('igmc');
+            if (!isIgmC) {
+              core.setFailed('PR is not marked IGMC (needs igmc label or IGMC: title).');
+            }
+
+            const sameRepo = pr.data.head?.repo?.full_name === pr.data.base?.repo?.full_name;
+            core.setOutput('same_repo', sameRepo ? 'true' : 'false');
+            core.setOutput('head_ref', pr.data.head.ref);
+            core.setOutput('head_sha', pr.data.head.sha);
+            core.setOutput('base_ref', pr.data.base.ref);
+            core.setOutput('pr_number', String(prNumber));
+
+      - name: Comment when branch is from fork
+        if: steps.pr.outputs.same_repo != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = Number('${{ steps.pr.outputs.pr_number }}');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: [
+                'IGMC Rebase Helper',
+                '',
+                'Cannot auto-rebase this PR because the head branch is not in the same repository (likely a fork).',
+                '',
+                'Next steps:',
+                '- Rebase manually and push, or',
+                '- Ask Copilot/PolishingAgent to resolve conflicts in a follow-up commit.',
+              ].join('\n'),
+            });
+
+      - name: Checkout PR branch
+        if: steps.pr.outputs.same_repo == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Rebase onto base branch
+        if: steps.pr.outputs.same_repo == 'true'
+        id: rebase
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git fetch origin "${{ steps.pr.outputs.base_ref }}" --prune
+
+          BASE="origin/${{ steps.pr.outputs.base_ref }}"
+          echo "Rebasing onto $BASE"
+
+          if git rebase "$BASE"; then
+            echo "rebase_ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rebase_ok=false" >> "$GITHUB_OUTPUT"
+            git rebase --abort || true
+            exit 1
+          fi
+
+      - name: Push rebased branch
+        if: steps.pr.outputs.same_repo == 'true' && steps.rebase.outputs.rebase_ok == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push --force-with-lease origin "HEAD:${{ steps.pr.outputs.head_ref }}"
+
+      - name: Comment success
+        if: steps.pr.outputs.same_repo == 'true' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = Number('${{ steps.pr.outputs.pr_number }}');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: [
+                'IGMC Rebase Helper',
+                '',
+                `Rebased this PR onto \`${{ steps.pr.outputs.base_ref }}\` and force-pushed the head branch.`,
+                '',
+                'Next:',
+                '- Wait for CI to re-run, then continue the normal IGMC PolishingAgent loop if needed.',
+              ].join('\n'),
+            });
+
+      - name: Comment conflict
+        if: steps.pr.outputs.same_repo == 'true' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = Number('${{ steps.pr.outputs.pr_number }}');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: [
+                'IGMC Rebase Helper',
+                '',
+                'Automatic rebase failed due to merge conflicts.',
+                '',
+                'Best options:',
+                '- Resolve conflicts manually and push, or',
+                '- Ask Copilot/PolishingAgent to resolve the conflicts in the PR branch.',
+                '',
+                'Tip:',
+                '- Reduce future conflicts by sequencing related IGMC issues (work one PR at a time per feature), or by splitting work across disjoint files.',
+              ].join('\n'),
+            });
