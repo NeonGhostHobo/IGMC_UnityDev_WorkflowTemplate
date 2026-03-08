@@ -1,0 +1,162 @@
+name: IGMC CI Failure Loop
+
+on:
+  workflow_run:
+    workflows: ["PR (IGMC Integrity Gate)"]
+    types: [completed]
+
+concurrency:
+  group: igmc-ci-loop-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  summarize:
+    name: Comment CI failure summary
+    if: ${{ github.event.workflow_run.conclusion != 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Comment PolishingAgent task on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const MAX_ATTEMPTS = 5;
+
+            // Only act on PR-associated runs.
+            const prs = run.pull_requests || [];
+            if (!prs.length) {
+              core.info('No pull request associated with this workflow_run; skipping.');
+              return;
+            }
+
+            const pr = prs[0];
+            const prNumber = Number(pr.number);
+
+            // Only act on IGMC PRs (label igmc OR title starts with IGMC:)
+            const prData = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            const prTitle = prData.data.title || '';
+            const prLabels = (prData.data.labels || []).map(l => l.name);
+            const isIgmC = prTitle.trim().toLowerCase().startsWith('igmc:') || prLabels.includes('igmc');
+            if (!isIgmC) {
+              core.info('PR is not marked IGMC (no igmc label and title not starting with IGMC:); skipping.');
+              return;
+            }
+
+            const marker = `<!-- igmc-ci-failure:${run.id} -->`;
+
+            // Avoid duplicate comments for the same workflow run.
+            const existing = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            if (existing.data.some(c => (c.body || '').includes(marker))) {
+              core.info('A CI failure comment for this run already exists; skipping.');
+              return;
+            }
+
+            // Attempt count = previous IGMC polishing tasks + 1
+            const priorAttempts = existing.data.filter(c => (c.body || '').includes('<!-- igmc-polish-task -->')).length;
+            const attempt = priorAttempts + 1;
+
+            if (attempt > MAX_ATTEMPTS) {
+              const stopMarker = '<!-- igmc-polish-stop -->';
+              if (existing.data.some(c => (c.body || '').includes(stopMarker))) {
+                core.info('Max attempts reached and stop comment already posted; skipping.');
+                return;
+              }
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: [
+                  stopMarker,
+                  `IGMC PolishingAgent task STOP (max attempts ${MAX_ATTEMPTS} reached)`,
+                  '',
+                  `Workflow run: ${run.html_url}`,
+                  '',
+                  'Manual intervention required:',
+                  '- Review the latest failing logs and adjust the approach.',
+                  '- If needed, re-assign the PR to Copilot with updated instructions.',
+                ].join('\n'),
+              });
+              return;
+            }
+
+            const jobs = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+              per_page: 100,
+            });
+
+            const failing = [];
+            for (const job of jobs.data.jobs) {
+              if (job.conclusion && job.conclusion !== 'success') {
+                const failedSteps = (job.steps || [])
+                  .filter(s => s.conclusion && s.conclusion !== 'success')
+                  .map(s => `- ${s.name}: ${s.conclusion}`);
+
+                failing.push({
+                  name: job.name,
+                  conclusion: job.conclusion,
+                  steps: failedSteps,
+                  url: job.html_url,
+                });
+              }
+            }
+
+            const lines = [];
+            lines.push('<!-- igmc-polish-task -->');
+            lines.push(marker);
+            lines.push(`IGMC PolishingAgent task (attempt ${attempt})`);
+            lines.push('');
+            lines.push(`Workflow run: ${run.html_url}`);
+            lines.push('');
+            lines.push('Failing jobs/steps:');
+
+            if (!failing.length) {
+              lines.push('- (Could not determine failing job details; open the run link above.)');
+            } else {
+              for (const f of failing) {
+                lines.push(`- Job: ${f.name} (${f.conclusion})`);
+                if (f.steps.length) {
+                  lines.push(...f.steps);
+                }
+                if (f.url) {
+                  lines.push(`  Logs: ${f.url}`);
+                }
+              }
+            }
+
+            lines.push('');
+            lines.push('Copilot action (do this now):');
+            lines.push('- Run the PolishingAgent loop: fix CI failures with minimal changes.');
+            lines.push('- If the failure is missing review.md, run the ReviewAgent to generate it first.');
+            lines.push('- Do NOT add new features; only make checks pass.');
+            lines.push('- Ensure required docs/tickets are updated if any code changed.');
+            lines.push('- If the PR is behind base with no true conflicts, comment /igmc-rebase to attempt an automated rebase.');
+            lines.push('- Follow `.github/copilot-instructions.md` and `.github/agents/IGMC_PolishingAgent.agent.md`.');
+            lines.push('');
+            lines.push('Exit condition:');
+            lines.push('- Stop when PR (IGMC Integrity Gate) is green.');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: lines.join('\n'),
+            });
