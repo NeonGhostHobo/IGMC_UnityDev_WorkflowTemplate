@@ -31,11 +31,15 @@ jobs:
               `2) Add/update one or more tickets/*.md\n` +
               `3) Implement the tickets (minimal safe changes)\n` +
               `4) Run ReviewAgent and add/update review.md\n` +
-              `5) Add/update reports/YYYY-MM-DD.md + reports/YYYY-MM-DD.json\n\n` +
+              `5) Add/update reports/YYYY-MM-DD-{issue_number}.md + reports/YYYY-MM-DD-{issue_number}.json\n` +
+              `   (Use this issue's number as the suffix — e.g. reports/2025-07-01-${issue.number}.md)\n\n` +
               `CI gates:\n` +
               `- PR (IGMC Integrity Gate) must pass\n` +
               `- scripts/validate_artifacts.py must pass\n` +
               `- If code changes occur, the PR must update required docs + include tickets/*.md + review.md\n\n` +
+              `Workflow tips:\n` +
+              `- If the PR is behind base (no true conflicts), comment /igmc-rebase on the PR to attempt an automated rebase.\n` +
+              `- If multiple IGMC PRs are open in parallel, the auto-rebase workflow will try to keep them up to date when one merges.\n\n` +
               `Reference: .github/copilot-instructions.md`;
 
             // Avoid duplicate comments if re-run.

@@ -1,0 +1,7 @@
+# Merge strategy for IGMC shared documentation files.
+#
+# "union" combines non-conflicting edits from both branches.
+# This reduces hard conflicts when multiple IGMC PRs are open in parallel and
+# both modify the same shared docs or review ledger.
+docs/*.md merge=union
+review.md merge=union
