@@ -1,0 +1,135 @@
+name: IGMC Auto-Rebase Open PRs on Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, master]
+
+# Serialize runs so concurrent merges don't race over the same branches.
+concurrency:
+  group: igmc-auto-rebase
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  auto-rebase:
+    name: Rebase open IGMC PRs onto updated base
+    # Only fire when an IGMC PR is merged (not just closed).
+    if: >-
+      github.event.pull_request.merged == true &&
+      (startsWith(github.event.pull_request.title, 'IGMC:') ||
+       contains(github.event.pull_request.labels.*.name, 'igmc'))
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebase open IGMC PRs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const base = context.payload.pull_request.base.ref;
+            const mergedPR = context.payload.pull_request.number;
+
+            // Find all open PRs targeting the same base branch.
+            const { data: openPRs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: base,
+              per_page: 100,
+            });
+
+            // Only rebase IGMC PRs from the same repository (forks can't be force-pushed).
+            const igmcPRs = openPRs.filter(pr =>
+              pr.number !== mergedPR &&
+              (pr.title.trim().toLowerCase().startsWith('igmc:') ||
+               pr.labels.some(l => l.name === 'igmc')) &&
+              pr.head.repo?.full_name === pr.base.repo?.full_name
+            );
+
+            if (igmcPRs.length === 0) {
+              core.info('No open same-repo IGMC PRs to rebase.');
+              return;
+            }
+
+            core.info(`Found ${igmcPRs.length} open IGMC PR(s) to rebase onto ${base}.`);
+
+            const { execSync } = require('child_process');
+
+            // Fetch all remote refs once.
+            execSync('git fetch --prune origin', { stdio: 'inherit' });
+
+            for (const pr of igmcPRs) {
+              const headRef = pr.head.ref;
+              const prNumber = pr.number;
+              core.info(`Processing PR #${prNumber} (${headRef})...`);
+
+              try {
+                // Check out the head branch tracking its remote.
+                execSync(`git checkout -B "${headRef}" "origin/${headRef}"`, { stdio: 'inherit' });
+
+                // Attempt the rebase.
+                execSync(`git rebase "origin/${base}"`, { stdio: 'inherit' });
+
+                // Push the rebased branch.
+                // Requires `contents: write` permission (set in the workflow-level permissions block).
+                execSync(`git push --force-with-lease origin "HEAD:${headRef}"`, { stdio: 'inherit' });
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: [
+                    '<!-- igmc-auto-rebase-ok -->',
+                    'IGMC Auto-Rebase',
+                    '',
+                    `Automatically rebased onto \`${base}\` after PR #${mergedPR} merged.`,
+                    'CI will re-run shortly.',
+                  ].join('\n'),
+                });
+
+                core.info(`  OK: PR #${prNumber} rebased and pushed.`);
+              } catch (err) {
+                // Clean up any in-progress rebase before moving to the next PR.
+                try { execSync('git rebase --abort', { stdio: 'inherit' }); } catch (abortErr) {
+                  core.debug('Rebase abort failed (may not be in rebase): ' + abortErr.message);
+                }
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: [
+                    '<!-- igmc-auto-rebase-conflict -->',
+                    'IGMC Auto-Rebase: Conflict',
+                    '',
+                    `Automatic rebase onto \`${base}\` failed after PR #${mergedPR} merged.`,
+                    '',
+                    'Action required:',
+                    '- Resolve merge conflicts manually and push, or',
+                    '- Ask Copilot/PolishingAgent to resolve the conflicts.',
+                    '',
+                    'Tip: The most common conflicts are in shared `docs/` files.',
+                    'Accept the latest version from `main` for project-wide docs, then',
+                    're-apply only this PR\'s specific changes on top.',
+                  ].join('\n'),
+                });
+
+                core.warning(`  CONFLICT: Rebase of PR #${prNumber} (${headRef}) failed.`);
+              }
+            }

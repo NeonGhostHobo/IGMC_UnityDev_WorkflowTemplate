@@ -19,7 +19,8 @@ When you are assigned an Issue labeled `igmc` (or a PR titled `IGMC:`), follow t
    - Keep the Unity project compiling.
 
 4) **Report**
-   - Add/update a short report in `reports/YYYY-MM-DD.md` and `reports/YYYY-MM-DD.json` summarizing what was done.
+   - Add/update a short report in `reports/YYYY-MM-DD-{issue_number}.md` and `reports/YYYY-MM-DD-{issue_number}.json` summarizing what was done.
+   - Use the GitHub issue number (e.g., `reports/2025-07-01-42.md` for issue #42). This avoids merge conflicts when multiple issues are worked in parallel.
 
 CI repair loop:
 - When CI fails, the workflow `IGMC CI Failure Loop` will post a comment on the PR with failing jobs/steps.
