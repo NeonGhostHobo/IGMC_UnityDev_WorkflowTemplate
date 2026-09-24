@@ -1,0 +1,58 @@
+schema_version: "1.0"
+profile: codex-local-first
+
+execution_policy:
+  local_by_default: true
+  unattended_ai: forbidden
+  scheduled_ai: forbidden
+  remote_execution: explicit-only
+  external_writes: explicit-only
+  paid_services: explicit-only
+
+model_family: gpt-5.6
+model_routing:
+  flagship:
+    model: gpt-5.6-sol
+    reasoning_effort: medium
+    use_for:
+      - complex architecture
+      - difficult debugging
+      - security review
+      - high-risk migrations
+    pro_mode: eval-only
+  balanced:
+    model: gpt-5.6-terra
+    reasoning_effort: medium
+    use_for:
+      - implementation
+      - ordinary code review
+      - issue decomposition
+      - documentation synthesis
+  efficient:
+    model: gpt-5.6-luna
+    reasoning_effort: low
+    use_for:
+      - extraction
+      - classification
+      - routine rewriting
+      - deterministic-result summarization
+
+selection_rules:
+  - Do not start a paid API or remote run solely because a profile names a model.
+  - Use the active Codex session unless the user explicitly requests another execution surface.
+  - Preserve the current workload role and reasoning effort for the first comparison.
+  - Compare the same effort and one level lower on representative tasks.
+  - Use max effort or pro mode only when evals show a material quality gain.
+  - Use multi-agent execution only for independent workstreams and only when explicitly enabled by the runtime or user.
+
+telemetry:
+  required_when_available:
+    - task_success
+    - latency
+    - input_tokens
+    - output_tokens
+    - reasoning_tokens
+    - cache_write_tokens
+    - cost_per_successful_task
+  repository_storage: summary-only
+  secrets_or_raw_reasoning: forbidden

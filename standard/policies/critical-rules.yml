@@ -2,4 +2,4 @@ critical_rules:
   - repository.contract.present
   - repository.contract.valid
   - security.no-secrets-in-contract
-  - workflow.managed-asset-conflict
+  - distribution.managed-asset-conflict

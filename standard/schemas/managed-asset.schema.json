@@ -1,22 +1,41 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://igmc.local/schemas/managed-asset.schema.json",
-  "title": "IGMC Managed Asset",
+  "title": "IGMC Managed Asset Registry",
   "type": "object",
-  "required": ["asset"],
+  "additionalProperties": false,
+  "required": ["schema_version", "assets"],
   "properties": {
-    "asset": {
-      "type": "object",
-      "required": ["id", "version", "source", "destination", "strategy", "ownership"],
-      "properties": {
-        "id": { "type": "string" },
-        "version": { "type": "string" },
-        "source": { "type": "string" },
-        "destination": { "type": "string" },
-        "strategy": { "type": "string" },
-        "ownership": { "type": "string" },
-        "checksum": { "type": ["string", "null"] },
-        "local_modification_policy": { "type": "string" }
+    "schema_version": { "const": "2.0" },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "source",
+          "destination",
+          "strategy",
+          "ownership",
+          "checksum",
+          "local_modification_policy"
+        ],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+          "source": { "type": "string", "minLength": 1 },
+          "destination": { "type": "string", "minLength": 1 },
+          "strategy": { "enum": ["managed-copy", "generated", "create-missing", "optional-copy"] },
+          "ownership": { "enum": ["workflow", "repository"] },
+          "checksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "local_modification_policy": {
+            "enum": ["preserve-local-modifications", "repository-owned-after-generation"]
+          },
+          "enabled_by_default": { "type": "boolean" }
+        }
       }
     }
   }

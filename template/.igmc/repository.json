@@ -1,0 +1,48 @@
+{
+  "schema_version": "2.0",
+  "repository": {
+    "id": "{{REPOSITORY_ID}}",
+    "name": "{{REPOSITORY_NAME}}",
+    "archetype": "{{REPOSITORY_ARCHETYPE}}",
+    "lifecycle": "{{REPOSITORY_LIFECYCLE}}",
+    "visibility": "{{REPOSITORY_VISIBILITY}}"
+  },
+  "standard": {
+    "profile": "codex-local-first",
+    "version": "{{IGMC_STANDARD_VERSION}}"
+  },
+  "paths": {
+    "documentation": "docs",
+    "design": "docs/design",
+    "decisions": "docs/decisions",
+    "plans": "docs/plans",
+    "tickets": "tickets"
+  },
+  "commands": {
+    "setup": null,
+    "validate": "python scripts/validate_repository_contract.py .",
+    "test": null,
+    "format_check": null,
+    "lint": null
+  },
+  "skills": {
+    "enabled": [
+      "igmc-work",
+      "igmc-review",
+      "igmc-issues",
+      "igmc-maintain"
+    ]
+  },
+  "automation": {
+    "unattended_ai": false,
+    "scheduled_ai": false,
+    "remote_execution": "explicit-only",
+    "external_writes": "explicit-only",
+    "paid_services": "explicit-only"
+  },
+  "integrations": {
+    "github": "optional",
+    "mcp": []
+  },
+  "exemptions": []
+}

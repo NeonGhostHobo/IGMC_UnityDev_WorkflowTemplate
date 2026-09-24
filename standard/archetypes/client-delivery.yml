@@ -4,11 +4,10 @@ description: Client-facing delivery repository with stronger review, reporting, 
 expected:
   paths:
     - docs
-    - reports
 commands:
-  validate: python scripts/validate_artifacts.py
+  validate: python scripts/validate_repository_contract.py .
   test: null
 checks:
   - documentation.required-artifacts-present
-  - reports.delivery-summary-present
-  - workflow.pr-template-present
+  - documentation.decision-traceability-present
+  - validation.evidence-present

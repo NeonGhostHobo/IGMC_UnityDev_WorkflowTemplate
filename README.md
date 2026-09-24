@@ -1,61 +1,85 @@
 # IGMC Workflow Repository
 
-This repository is the **single source of truth** for the IGMC repository operating workflow. It is the workflow standard, installer, and template distribution source for all repositories managed by Command Deck.
+This repository is the source of truth for a Codex-native, local-first repository workflow.
 
-It distributes the reusable pieces that make a repository compatible with:
-- Codex issue drafting and GitHub publishing from a local checkout, with Copilot as an optional implementation route
-- The PR + nightly **IGMC integrity gates**
-- The CI failure -> PolishingAgent loop (with attempt cap)
-- The agent spec stack under `.github/agents/`
-- The IGMC Repository Operating Standard contract and alignment model
+The core distribution contains:
 
-The repository was originally named for Unity development, but the workflow now applies to Unity and non-Unity repositories. Unity-specific expectations belong in the `unity-project` archetype rather than the generic scaffold. The repository is named `IGMC_WorkflowRepository`.
+- a compact `AGENTS.md` authority and working contract;
+- task-specific skills under `.agents/skills/`;
+- a strict `.igmc/repository.json` contract and installed schema;
+- deterministic local validators;
+- canonical documentation directories;
+- local issue drafting with optional, explicitly requested publication.
 
-## Apply to another repo
+It does not install scheduled jobs, unattended AI, remote agents, GitHub automation, commits, pushes, or paid API calls.
 
-From this repo root:
+## Apply to a repository
 
-- `python apply.py --dest /path/to/other-repo --repo-id my-repo --repo-name "My Repo" --archetype generic-software`
+The installer is dry-run by default:
 
-Options:
-- Add `--force` to overwrite existing files.
-- Use `--archetype rust-terminal-application`, `unity-project`, `web-application`, or `generic-software` to seed `.igmc/repository.yml`.
+```powershell
+python apply.py --dest F:\Repositories\Example --repo-id example --repo-name "Example" --archetype generic-software
+```
 
-## What gets installed
+Review the JSON plan, then apply it explicitly:
 
-Everything under `template/` is copied into the destination repo root, preserving paths:
-- `.igmc/repository.yml`
-- `.github/workflows/*`
-- `.github/agents/*`
-- `.github/copilot-instructions.md`
-- `.github/ISSUE_TEMPLATE/igmc-intake.yml`
-- `scripts/validate_artifacts.py`
-- baseline `/docs/*` artifacts
-- `tickets/` + `reports/` folders
+```powershell
+python apply.py --dest F:\Repositories\Example --repo-id example --repo-name "Example" --archetype generic-software --apply
+```
 
-The root `apply.py` is the canonical installer. `workflow_scaffold/apply.py` is only a compatibility wrapper for older automation and delegates to root `apply.py`. There must not be a second template tree under `workflow_scaffold/template/`.
+Existing differing files are reported as conflicts and block the complete apply. `--force` is available only with `--apply` and represents an explicit migration decision.
+
+Optional GitHub surfaces are separate:
+
+```powershell
+# Issue and pull-request templates only
+python apply.py --dest F:\Repositories\Example --with-github-metadata --apply
+
+# Also add deterministic contract validation in GitHub Actions
+python apply.py --dest F:\Repositories\Example --with-github-ci --apply
+```
+
+The optional CI workflow never invokes Codex or another AI service. GitHub-hosted runner usage may still be billable under the repository owner's GitHub plan, so it is never installed by default.
+
+## Codex workflow
+
+Open the destination repository in Codex and ask for the outcome. `AGENTS.md` establishes common boundaries, and Codex loads the relevant skill:
+
+- `igmc-work` for implementation or fixes;
+- `igmc-review` for review or diagnosis;
+- `igmc-issues` for local issue drafting;
+- `igmc-maintain` for contract validation or workflow upgrades.
+
+Skills provide workflow knowledge. MCP servers are optional live-data or action providers. Connecting a tool never implies permission to publish, spend money, schedule work, or write to an external system.
 
 ## Source-of-truth layout
 
-- `standard/` contains schemas, archetypes, rules, policies, managed assets, and the human-readable operating standard.
-- `template/` contains installable repository files.
-- `validators/` contains deterministic validators for this workflow repository and installed repositories.
-- `apply.py` is the only installer implementation.
+- `AGENTS.md`: source-repository boundaries and validation commands.
+- `standard/`: operating standard, schemas, archetypes, policies, runtime profile, and managed assets.
+- `template/`: the Codex-native core scaffold.
+- `optional/`: explicitly selected integration adapters.
+- `validators/`: deterministic validation code.
+- `apply.py`: manifest-first installer.
+- `workflow_scaffold/apply.py`: compatibility entrypoint that delegates to `apply.py`.
 
-## Notes
+## Validate this repository
 
-- The PR gate enforces that any non-doc changes also update required `/docs/*`, add/update at least one `tickets/*.md`, and add/update `review.md`.
-- Archetype-specific validation, such as Unity compilation, is declared by `.igmc/repository.yml` and archetype rules rather than hard-coded into the generic template.
+```powershell
+python validators/validate_standard_assets.py
+python -m unittest discover -s tests -v
+```
 
-## Validate the workflow standard
+Validate an installed repository:
 
-From this repo root:
+```powershell
+python scripts/validate_repository_contract.py .
+```
 
-- `python validators/validate_standard_assets.py`
-- `python validators/validate_repository_contract.py --root /path/to/installed-repo`
+## Design principles
 
-## Generate issues with Codex
-
-Open an installed repository in the Codex VS Code extension, OpenAI desktop app, or Codex CLI. Ask Codex to turn a request or `docs/design/` section into IGMC issues. The installed `.agents/skills/igmc-issues/SKILL.md` creates `tickets/*.md` drafts, checks existing GitHub issues for duplicates, and publishes with `scripts/igmc_issue.py` when requested. Publishing uses an authenticated `gh` CLI; no Copilot assignment is required.
-
-The optional Copilot route remains in `.github/copilot-instructions.md` and the GitHub agent files. Applying the template does not connect a repository to Codex cloud; that connection is configured separately in Codex.
+- Local by default; remote and paid execution are explicit.
+- Skills over duplicated provider-specific agent prompts.
+- Deterministic contracts over prompt-enforced gates.
+- Documentation updates when facts change, not on every source edit.
+- Dry-run and manifests before repository-wide workflow changes.
+- Git history for storage; GitHub automation only when it earns its maintenance and execution cost.

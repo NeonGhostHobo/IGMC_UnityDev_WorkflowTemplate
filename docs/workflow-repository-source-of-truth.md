@@ -1,20 +1,16 @@
-# Workflow Repository Source Of Truth
+# Workflow Repository Source of Truth
 
-This repository is the IGMC Workflow Repository: the canonical source for the repository operating standard, installable workflow template, validators, agents, workflows, and managed asset registry.
+The IGMC Workflow Repository owns the global Codex workflow standard. Installed repositories own their project-specific contract and documentation.
 
-## Canonical Paths
+## Canonical sources
 
-- `standard/` contains the operating standard and machine-readable schemas, archetypes, rules, policies, and managed asset metadata.
-- `template/` contains the installable repository scaffold.
-- `validators/` contains deterministic validation tools for the workflow repository and installed repositories.
-- `apply.py` is the canonical installer.
+- `standard/repository-operating-standard.md`: human-readable policy.
+- `standard/schemas/`: machine contracts.
+- `standard/runtime/codex.yml`: model-role and cost boundaries.
+- `standard/assets/managed-assets.json`: distributed and optional assets.
+- `template/`: core Codex-native files.
+- `optional/`: opt-in GitHub adapters.
+- `validators/`: deterministic enforcement.
+- `apply.py`: the only installer implementation.
 
-## Compatibility
-
-`workflow_scaffold/apply.py` remains only as a compatibility wrapper. It delegates to root `apply.py`.
-
-There must not be a second template under `workflow_scaffold/template/`. A second template tree creates drift and violates the source-of-truth model.
-
-## Existing Assets
-
-The existing IGMC agents, issue templates, and workflows are retained as managed assets. They should be tuned and versioned through `standard/assets/managed-assets.yml` rather than replaced wholesale.
+Provider-specific generated files are adapters, not authorities. Repository files are never updated by an unattended cross-repository workflow. Upgrades begin with a local installer plan and require an explicit apply.

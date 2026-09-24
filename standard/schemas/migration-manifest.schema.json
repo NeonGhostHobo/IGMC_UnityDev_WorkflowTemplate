@@ -1,24 +1,50 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://igmc.local/schemas/migration-manifest.schema.json",
-  "title": "IGMC Migration Manifest",
+  "title": "IGMC Scaffold Migration Manifest",
   "type": "object",
-  "required": ["manifest_version", "operation", "classification", "summary", "operations", "validations", "conflicts", "warnings", "rollback"],
+  "additionalProperties": false,
+  "required": ["manifest_version", "created_at", "mode", "repository", "standard_version", "components", "operations"],
   "properties": {
-    "manifest_version": { "type": "string" },
-    "operation": {
+    "manifest_version": { "const": "2.0" },
+    "created_at": { "type": "string", "minLength": 1 },
+    "mode": { "enum": ["plan", "apply"] },
+    "state": { "enum": ["completed"] },
+    "repository": {
       "type": "object",
-      "required": ["id", "type", "created_at", "repository", "base_commit", "workflow_version_to"]
+      "additionalProperties": false,
+      "required": ["path", "id", "archetype"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "archetype": { "type": "string", "minLength": 1 }
+      }
     },
-    "classification": {
+    "standard_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "components": {
       "type": "object",
-      "required": ["archetype", "confidence"]
+      "additionalProperties": false,
+      "required": ["core", "github_metadata", "github_ci"],
+      "properties": {
+        "core": { "const": true },
+        "github_metadata": { "type": "boolean" },
+        "github_ci": { "type": "boolean" }
+      }
     },
-    "summary": { "type": "object" },
-    "operations": { "type": "array" },
-    "validations": { "type": "array" },
-    "conflicts": { "type": "array" },
-    "warnings": { "type": "array" },
-    "rollback": { "type": "object" }
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "component", "action", "source_sha256", "destination_sha256"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "component": { "type": "string", "minLength": 1 },
+          "action": { "enum": ["create", "unchanged", "conflict", "overwrite"] },
+          "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "destination_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
   }
 }

@@ -1,0 +1,22 @@
+name: IGMC work item
+description: Record a repository outcome for local or Codex-assisted implementation.
+title: "IGMC: "
+labels: ["igmc"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior, not the implementation method.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and non-goals
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Acceptance and validation evidence
+    validations:
+      required: true

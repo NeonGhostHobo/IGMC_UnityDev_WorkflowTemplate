@@ -1,0 +1,107 @@
+{
+  "schema_version": "2.0",
+  "assets": [
+    {
+      "id": "codex.instructions",
+      "version": "2.0.0",
+      "source": "template/AGENTS.md",
+      "destination": "AGENTS.md",
+      "strategy": "managed-copy",
+      "ownership": "workflow",
+      "checksum": "sha256:4811c1cd651e068f5c3550713ab017400149ecd54e10de154f5a5fd48ac863f3",
+      "local_modification_policy": "preserve-local-modifications"
+    },
+    {
+      "id": "codex.skills",
+      "version": "2.0.0",
+      "source": "template/.agents/skills",
+      "destination": ".agents/skills",
+      "strategy": "managed-copy",
+      "ownership": "workflow",
+      "checksum": "sha256:3fa2bf7b7229594f700f79082f32b6d14acea01b56bc81d9112d5606d14c7769",
+      "local_modification_policy": "preserve-local-modifications"
+    },
+    {
+      "id": "contract.repository",
+      "version": "2.0.0",
+      "source": "template/.igmc/repository.json",
+      "destination": ".igmc/repository.json",
+      "strategy": "generated",
+      "ownership": "repository",
+      "checksum": "sha256:2fc14d87ea582e9d8d8d83fe5eeb998337dd03050cb041875fdbb5f5f1556ee6",
+      "local_modification_policy": "repository-owned-after-generation"
+    },
+    {
+      "id": "documentation.seed",
+      "version": "2.0.0",
+      "source": "template/docs",
+      "destination": "docs",
+      "strategy": "create-missing",
+      "ownership": "repository",
+      "checksum": "sha256:20ada2480b40cceec9b2a6b90c67224381735ebcddc2801a694838af175dcb24",
+      "local_modification_policy": "repository-owned-after-generation"
+    },
+    {
+      "id": "tickets.seed",
+      "version": "2.0.0",
+      "source": "template/tickets",
+      "destination": "tickets",
+      "strategy": "create-missing",
+      "ownership": "repository",
+      "checksum": "sha256:1207f4981ef87ae3564dfe4dc13b89ffb0f13bb6dcaae60a243e4ccc5cc1e69a",
+      "local_modification_policy": "repository-owned-after-generation"
+    },
+    {
+      "id": "tool.igmc-issue",
+      "version": "2.0.0",
+      "source": "template/scripts/igmc_issue.py",
+      "destination": "scripts/igmc_issue.py",
+      "strategy": "managed-copy",
+      "ownership": "workflow",
+      "checksum": "sha256:fe643df198588cd8e05e51b89a6470e8f73eefe3c963006150ef45f269c1230d",
+      "local_modification_policy": "preserve-local-modifications"
+    },
+    {
+      "id": "validator.repository-contract",
+      "version": "2.0.0",
+      "source": "validators/validate_repository_contract.py",
+      "destination": "scripts/validate_repository_contract.py",
+      "strategy": "managed-copy",
+      "ownership": "workflow",
+      "checksum": "sha256:930cf4f2c967a8d64c815d360d69604fefe6cfd6451bcf5d96625d37fb32fdf5",
+      "local_modification_policy": "preserve-local-modifications"
+    },
+    {
+      "id": "schema.repository-contract",
+      "version": "2.0.0",
+      "source": "standard/schemas/repository.schema.json",
+      "destination": ".igmc/schema/repository.schema.json",
+      "strategy": "managed-copy",
+      "ownership": "workflow",
+      "checksum": "sha256:ed8cb12bd7c5c92e69bfb9569f2a0dcd68fa2985e624634c6acae146b0f2184b",
+      "local_modification_policy": "preserve-local-modifications"
+    },
+    {
+      "id": "adapter.github-metadata",
+      "version": "2.0.0",
+      "source": "optional/github-metadata/template",
+      "destination": ".",
+      "strategy": "optional-copy",
+      "ownership": "workflow",
+      "checksum": "sha256:2a373424d1fb444f5499b738cf097cd288f835b929fd0a8afa37baa9ad0e3ca4",
+      "local_modification_policy": "preserve-local-modifications",
+      "enabled_by_default": false
+    },
+    {
+      "id": "adapter.github-ci",
+      "version": "2.0.0",
+      "source": "optional/github-ci/template",
+      "destination": ".",
+      "strategy": "optional-copy",
+      "ownership": "workflow",
+      "checksum": "sha256:5eafc0c830430206a6a211f85358248b5748b158104cb9a66f3551e3b27909cb",
+      "local_modification_policy": "preserve-local-modifications",
+      "enabled_by_default": false
+    }
+  ]
+}

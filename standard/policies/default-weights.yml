@@ -5,7 +5,7 @@ categories:
   documentation: 15
   issue-governance: 10
   validation-and-testing: 15
-  git-and-ci-governance: 10
+  integration-governance: 10
   workflow-currency: 10
 grades:
   fully_aligned: 95

@@ -5,7 +5,7 @@ rules:
     weight: 5
     check:
       type: path-exists
-      path: .igmc/repository.yml
+      path: .igmc/repository.json
     remediation:
       type: create-from-template
       safe: false
@@ -28,32 +28,30 @@ rules:
     check:
       type: paths-exist
       paths:
-        - docs/context_pack.json
-        - docs/goals.json
-        - docs/design.json
-        - docs/plan.yaml
+        - docs/README.md
+        - docs/design
     remediation:
       type: create-missing-artifacts
       safe: false
 
-  - id: workflow.issue-template-present
-    category: issue-governance
+  - id: codex.instructions-present
+    category: ai-configuration
     severity: required
     weight: 5
     check:
       type: path-exists
-      path: .github/ISSUE_TEMPLATE/igmc-intake.yml
+      path: AGENTS.md
     remediation:
       type: install-managed-asset
       safe: false
 
-  - id: workflow.pr-template-present
-    category: git-and-ci-governance
+  - id: codex.skills-present
+    category: ai-configuration
     severity: required
     weight: 5
     check:
       type: path-exists
-      path: .github/PULL_REQUEST_TEMPLATE.md
+      path: .agents/skills
     remediation:
       type: install-managed-asset
       safe: false

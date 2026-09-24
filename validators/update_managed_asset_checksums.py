@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 from pathlib import Path
 
 
-ASSET_FILE = Path("standard/assets/managed-assets.yml")
+ASSET_FILE = Path("standard/assets/managed-assets.json")
 
 
 def sha256_path(path: Path) -> str:
@@ -27,23 +28,10 @@ def sha256_path(path: Path) -> str:
 
 def update_checksums(root: Path, *, write: bool) -> str:
     asset_path = root / ASSET_FILE
-    lines = asset_path.read_text(encoding="utf-8").splitlines()
-    updated_lines = []
-    current_source: str | None = None
-
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("source:"):
-            current_source = stripped.split(":", 1)[1].strip().strip('"')
-            updated_lines.append(line)
-        elif stripped.startswith("checksum:") and current_source:
-            checksum = sha256_path(root / current_source)
-            indent = line[: len(line) - len(line.lstrip())]
-            updated_lines.append(f'{indent}checksum: "{checksum}"')
-        else:
-            updated_lines.append(line)
-
-    updated = "\n".join(updated_lines) + "\n"
+    registry = json.loads(asset_path.read_text(encoding="utf-8"))
+    for asset in registry["assets"]:
+        asset["checksum"] = sha256_path(root / asset["source"])
+    updated = json.dumps(registry, indent=2) + "\n"
     if write:
         asset_path.write_text(updated, encoding="utf-8")
     return updated
